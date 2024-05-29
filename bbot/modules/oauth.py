@@ -6,7 +6,7 @@ from .base import BaseModule
 class OAUTH(BaseModule):
     watched_events = ["DNS_NAME", "URL_UNVERIFIED"]
     produced_events = ["DNS_NAME"]
-    flags = ["affiliates", "subdomain-enum", "cloud-enum", "web-basic", "web-thorough", "active", "safe"]
+    flags = ["affiliates", "subdomain-enum", "cloud-enum", "web-basic", "active", "safe"]
     meta = {
         "description": "Enumerate OAUTH and OpenID Connect services",
         "created_date": "2023-07-12",
@@ -123,7 +123,7 @@ class OAUTH(BaseModule):
                 return url, token_endpoint, results
             if json and isinstance(json, dict):
                 token_endpoint = json.get("token_endpoint", "")
-                for found in self.helpers.search_dict_values(json, *self.regexes):
+                for found in await self.helpers.re.search_dict_values(json, *self.regexes):
                     results.add(found)
         results -= {token_endpoint}
         return url, token_endpoint, results

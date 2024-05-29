@@ -2,15 +2,16 @@ import asyncio
 from OpenSSL import crypto
 from contextlib import suppress
 
+from bbot.errors import ValidationError
 from bbot.modules.base import BaseModule
-from bbot.core.errors import ValidationError
 from bbot.core.helpers.async_helpers import NamedLock
+from bbot.core.helpers.web.ssl_context import ssl_context_noverify
 
 
 class sslcert(BaseModule):
     watched_events = ["OPEN_TCP_PORT"]
     produced_events = ["DNS_NAME", "EMAIL_ADDRESS"]
-    flags = ["affiliates", "subdomain-enum", "email-enum", "active", "safe", "web-basic", "web-thorough"]
+    flags = ["affiliates", "subdomain-enum", "email-enum", "active", "safe", "web-basic"]
     meta = {
         "description": "Visit open ports and retrieve SSL certificates",
         "created_date": "2022-03-30",
@@ -80,8 +81,13 @@ class sslcert(BaseModule):
                         self.debug(f"Discovered new {event_type} via SSL certificate parsing: [{event_data}]")
                         try:
                             ssl_event = self.make_event(event_data, event_type, source=event, raise_error=True)
+                            source_event = ssl_event.get_source()
+                            if source_event.scope_distance == 0:
+                                tags = ["affiliate"]
+                            else:
+                                tags = None
                             if ssl_event:
-                                await self.emit_event(ssl_event, on_success_callback=self.on_success_callback)
+                                await self.emit_event(ssl_event, tags=tags)
                         except ValidationError as e:
                             self.hugeinfo(f'Malformed {event_type} "{event_data}" at {event.data}')
                             self.debug(f"Invalid data at {host}:{port}: {e}")
@@ -106,17 +112,12 @@ class sslcert(BaseModule):
 
             host = str(host)
 
-            # Create an SSL context
-            try:
-                ssl_context = self.helpers.ssl_context_noverify()
-            except Exception as e:
-                self.warning(f"Error creating SSL context: {e}")
-                return [], [], (host, port)
-
             # Connect to the host
             try:
                 transport, _ = await asyncio.wait_for(
-                    self.scan._loop.create_connection(lambda: asyncio.Protocol(), host, port, ssl=ssl_context),
+                    self.helpers.loop.create_connection(
+                        lambda: asyncio.Protocol(), host, port, ssl=ssl_context_noverify
+                    ),
                     timeout=self.timeout,
                 )
             except asyncio.TimeoutError:

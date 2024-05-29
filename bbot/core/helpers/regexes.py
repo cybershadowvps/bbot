@@ -1,4 +1,4 @@
-import re
+import regex as re
 from collections import OrderedDict
 
 # for extracting words from strings
@@ -116,9 +116,9 @@ scan_name_regex = re.compile(r"[a-z]{3,20}_[a-z]{3,20}")
 
 # For use with extract_params_html helper
 input_tag_regex = re.compile(r"<input[^>]+?name=[\"\'](\w+)[\"\']")
-jquery_get_regex = re.compile(r"url:\s?[\"\'].+?\?(\w+)=")
+jquery_get_regex = re.compile(r"\$.get\([\'\"].+[\'\"].+\{(.+)\}")
 jquery_post_regex = re.compile(r"\$.post\([\'\"].+[\'\"].+\{(.+)\}")
-a_tag_regex = re.compile(r"<a[^>]*href=[\"\'][^\"\'?>]*\?([^&\"\'=]+)")
+a_tag_regex = re.compile(r"<a[^>]*href=[\"\'][^\"\'#>]*\?([^\"\'#>]+)[\"\']")
 
 valid_netloc = r"[^\s!@#$%^&()=/?\\'\";~`<>]+"
 
@@ -130,3 +130,7 @@ extract_open_port_regex = re.compile(_extract_open_port_regex)
 
 _extract_host_regex = r"(?:[a-z0-9]{1,20}://)?(?:[^?]*@)?(" + valid_netloc + ")"
 extract_host_regex = re.compile(_extract_host_regex, re.I)
+
+# for use in recursive_decode()
+encoded_regex = re.compile(r"%[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}|\\U[0-9a-fA-F]{8}|\\[ntrbv]")
+backslash_regex = re.compile(r"(?P<slashes>\\+)(?P<char>[ntrvb])")

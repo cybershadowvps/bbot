@@ -4,13 +4,12 @@ import tempfile
 import subprocess
 from pathlib import Path
 from bbot.modules.base import BaseModule
-from bbot.core.helpers.web import is_login_page
 
 
 class httpx(BaseModule):
     watched_events = ["OPEN_TCP_PORT", "URL_UNVERIFIED", "URL"]
     produced_events = ["URL", "HTTP_RESPONSE"]
-    flags = ["active", "safe", "web-basic", "web-thorough", "social-enum", "subdomain-enum", "cloud-enum"]
+    flags = ["active", "safe", "web-basic", "social-enum", "subdomain-enum", "cloud-enum"]
     meta = {
         "description": "Visit webpages. Many other modules rely on httpx",
         "created_date": "2022-07-08",
@@ -88,7 +87,7 @@ class httpx(BaseModule):
             if e.type.startswith("URL"):
                 # we NEED the port, otherwise httpx will try HTTPS even for HTTP URLs
                 url = e.with_port().geturl()
-                if e.parsed.path == "/":
+                if e.parsed_url.path == "/":
                     url_hash = hash((e.host, e.port))
             else:
                 url = str(e.data)
@@ -167,7 +166,7 @@ class httpx(BaseModule):
             if httpx_ip:
                 tags.append(f"ip-{httpx_ip}")
             # detect login pages
-            if is_login_page(j.get("body", "")):
+            if self.helpers.web.is_login_page(j.get("body", "")):
                 tags.append("login-page")
             # grab title
             title = self.helpers.tagify(j.get("title", ""), maxlen=30)
@@ -177,8 +176,6 @@ class httpx(BaseModule):
             if url_event:
                 if url_event != source_event:
                     await self.emit_event(url_event)
-                else:
-                    url_event._resolved.set()
                 # HTTP response
                 await self.emit_event(j, "HTTP_RESPONSE", url_event, tags=url_event.tags)
 

@@ -1,20 +1,35 @@
 import multiprocessing
-
+from pathlib import Path
 from .base import BaseModule
-
 from badsecrets.base import carve_all_modules
 
 
 class badsecrets(BaseModule):
     watched_events = ["HTTP_RESPONSE"]
     produced_events = ["FINDING", "VULNERABILITY", "TECHNOLOGY"]
-    flags = ["active", "safe", "web-basic", "web-thorough"]
+    flags = ["active", "safe", "web-basic"]
     meta = {
         "description": "Library for detecting known or weak secrets across many web frameworks",
         "created_date": "2022-11-19",
         "author": "@liquidsec",
     }
+    options = {"custom_secrets": None}
+    options_desc = {
+        "custom_secrets": "Include custom secrets loaded from a local file",
+    }
     deps_pip = ["badsecrets~=0.4.490"]
+
+    async def setup(self):
+        self.custom_secrets = None
+        custom_secrets = self.config.get("custom_secrets", None)
+        if custom_secrets:
+            if Path(custom_secrets).is_file():
+                self.custom_secrets = custom_secrets
+                self.info(f"Successfully loaded secrets file [{custom_secrets}]")
+            else:
+                self.warning(f"custom secrets file [{custom_secrets}] is not valid")
+                return None, "Custom secrets file not valid"
+        return True
 
     @property
     def _max_event_handlers(self):
@@ -37,12 +52,13 @@ class badsecrets(BaseModule):
                         resp_cookies[c2[0]] = c2[1]
         if resp_body or resp_cookies:
             try:
-                r_list = await self.scan.run_in_executor_mp(
+                r_list = await self.helpers.run_in_executor_mp(
                     carve_all_modules,
                     body=resp_body,
                     headers=resp_headers,
                     cookies=resp_cookies,
                     url=event.data.get("url", None),
+                    custom_resource=self.custom_secrets,
                 )
             except Exception as e:
                 self.warning(f"Error processing {event}: {e}")

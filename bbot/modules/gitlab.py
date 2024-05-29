@@ -4,7 +4,7 @@ from bbot.modules.base import BaseModule
 class gitlab(BaseModule):
     watched_events = ["HTTP_RESPONSE", "TECHNOLOGY", "SOCIAL"]
     produced_events = ["TECHNOLOGY", "SOCIAL", "CODE_REPOSITORY", "FINDING"]
-    flags = ["active", "safe"]
+    flags = ["active", "safe", "code-enum"]
     meta = {
         "description": "Detect GitLab instances and query them for repositories",
         "created_date": "2024-03-11",
@@ -51,7 +51,7 @@ class gitlab(BaseModule):
         # HTTP_RESPONSE --> FINDING
         headers = event.data.get("header", {})
         if "x_gitlab_meta" in headers:
-            url = event.parsed._replace(path="/").geturl()
+            url = event.parsed_url._replace(path="/").geturl()
             await self.emit_event(
                 {"host": str(event.host), "technology": "GitLab", "url": url}, "TECHNOLOGY", source=event
             )

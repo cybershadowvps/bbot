@@ -1,9 +1,9 @@
 import pytest
 import traceback
 
-from bbot.core.event.helpers import get_event_type
 from bbot.core.helpers import regexes
-from bbot.core.errors import ValidationError
+from bbot.errors import ValidationError
+from bbot.core.event.helpers import get_event_type
 
 
 # NOTE: :2001:db8:: will currently cause an exception...
