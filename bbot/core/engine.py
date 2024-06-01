@@ -1,5 +1,4 @@
 import zmq
-import atexit
 import pickle
 import asyncio
 import inspect
@@ -65,7 +64,6 @@ class EngineClient(EngineBase):
         self.server_kwargs = kwargs.pop("server_kwargs", {})
         self._server_process = None
         self.context = zmq.asyncio.Context()
-        atexit.register(self.cleanup)
 
     def check_error(self, message):
         if isinstance(message, dict) and len(message) == 1 and "_e" in message:
@@ -148,12 +146,14 @@ class EngineClient(EngineBase):
                     self.socket_path,
                 ),
                 kwargs=self.server_kwargs,
-                custom_name="bbot dnshelper",
+                custom_name=f"BBOT {self.__class__.__name__}",
             )
             self.process.start()
             return self.process
         else:
-            raise BBOTEngineError(f"Tried to start server from process {self.process_name}")
+            raise BBOTEngineError(
+                f"Tried to start server from process {self.process_name}. Did you forget \"if __name__ == '__main__'?\""
+            )
 
     @staticmethod
     def server_process(server_class, socket_path, **kwargs):
@@ -182,9 +182,11 @@ class EngineClient(EngineBase):
             with suppress(Exception):
                 socket.close()
 
-    def cleanup(self):
-        # delete socket file on exit
-        self.socket_path.unlink(missing_ok=True)
+    async def cleanup(self):
+        # -2 == special "shutdown" signal
+        shutdown_message = pickle.dumps({"c": -2})
+        async with self.new_socket() as socket:
+            await socket.send(shutdown_message)
 
 
 class EngineServer(EngineBase):
@@ -194,13 +196,14 @@ class EngineServer(EngineBase):
     def __init__(self, socket_path):
         super().__init__()
         self.name = f"EngineServer {self.__class__.__name__}"
-        if socket_path is not None:
+        self.socket_path = socket_path
+        if self.socket_path is not None:
             # create ZeroMQ context
             self.context = zmq.asyncio.Context()
             # ROUTER socket can handle multiple concurrent requests
             self.socket = self.context.socket(zmq.ROUTER)
             # create socket file
-            self.socket.bind(f"ipc://{socket_path}")
+            self.socket.bind(f"ipc://{self.socket_path}")
             # task <--> client id mapping
             self.tasks = dict()
 
@@ -276,22 +279,16 @@ class EngineServer(EngineBase):
                     self.log.warning(f"No command sent in message: {message}")
                     continue
 
+                # -1 == special signal to cancel a task
                 if cmd == -1:
-                    task = self.tasks.get(client_id, None)
-                    if task is None:
-                        continue
-                    task, _cmd, _args, _kwargs = task
-                    self.log.debug(f"Cancelling client id {client_id} (task: {task})")
-                    task.cancel()
-                    try:
-                        await task
-                    except (KeyboardInterrupt, asyncio.CancelledError):
-                        pass
-                    except BaseException as e:
-                        self.log.error(f"Unhandled error in {_cmd}({_args}, {_kwargs}): {e}")
-                        self.log.trace(traceback.format_exc())
-                    self.tasks.pop(client_id, None)
+                    await self.cancel_task(client_id)
                     continue
+
+                # -2 == special signal to shut down the engine
+                if cmd == -2:
+                    self.log.debug(f"Shutting down {self.name}")
+                    await self.cancel_all_tasks()
+                    break
 
                 args = message.get("a", ())
                 if not isinstance(args, tuple):
@@ -322,3 +319,26 @@ class EngineServer(EngineBase):
         finally:
             with suppress(Exception):
                 self.socket.close()
+            # delete socket file on exit
+            self.socket_path.unlink(missing_ok=True)
+
+    async def cancel_task(self, client_id):
+        task = self.tasks.get(client_id, None)
+        if task is None:
+            return
+        task, _cmd, _args, _kwargs = task
+        self.log.debug(f"Cancelling client id {client_id} (task: {task})")
+        task.cancel()
+        try:
+            await task
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            pass
+        except BaseException as e:
+            self.log.error(f"Unhandled error in {_cmd}({_args}, {_kwargs}): {e}")
+            self.log.trace(traceback.format_exc())
+        finally:
+            self.tasks.pop(client_id, None)
+
+    async def cancel_all_tasks(self):
+        for client_id in self.tasks:
+            await self.cancel_task(client_id)

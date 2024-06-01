@@ -93,7 +93,7 @@ class URLExtractor(BaseExtractor):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.web_spider_links_per_page = self.excavate.scan.config.get("web_spider_links_per_page", 20)
+        self.web_spider_links_per_page = self.excavate.web_config.get("spider_links_per_page", 20)
 
     async def search(self, content, event, **kwargs):
         consider_spider_danger = kwargs.get("consider_spider_danger", True)
@@ -390,6 +390,10 @@ class excavate(BaseInternalModule):
     scope_distance_modifier = None
 
     async def setup(self):
+        self.web_config = self.scan.config.get("web", {})
+        max_redirects = self.web_config.get("http_max_redirects", 5)
+        self.web_spider_distance = self.web_config.get("spider_distance", 0)
+        self.max_redirects = max(max_redirects, self.web_spider_distance)
         self.csp = CSPExtractor(self)
         self.hostname = HostnameExtractor(self)
         self.url = URLExtractor(self)
@@ -399,9 +403,6 @@ class excavate(BaseInternalModule):
         self.javascript = JavascriptExtractor(self)
         self.serialization = SerializationExtractor(self)
         self.functionality = FunctionalityExtractor(self)
-        max_redirects = self.scan.config.get("http_max_redirects", 5)
-        self.web_spider_distance = self.scan.config.get("web_spider_distance", 0)
-        self.max_redirects = max(max_redirects, self.web_spider_distance)
         return True
 
     async def search(self, source, extractors, event, **kwargs):

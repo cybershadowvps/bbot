@@ -4,7 +4,7 @@ import argparse
 from omegaconf import OmegaConf
 
 from bbot.errors import *
-from bbot.core.helpers.misc import chain_lists, get_closest_match
+from bbot.core.helpers.misc import chain_lists, get_closest_match, get_keys_in_dot_syntax
 
 log = logging.getLogger("bbot.presets.args")
 
@@ -12,7 +12,7 @@ log = logging.getLogger("bbot.presets.args")
 class BBOTArgs:
 
     # module config options to exclude from validation
-    exclude_from_validation = re.compile(r".*modules\.[a-z0-9_]+\.(?:batch_size|max_event_handlers)$")
+    exclude_from_validation = re.compile(r".*modules\.[a-z0-9_]+\.(?:batch_size|module_threads)$")
 
     scan_examples = [
         (
@@ -38,7 +38,7 @@ class BBOTArgs:
         (
             "Web spider",
             "Crawl www.evilcorp.com up to a max depth of 2, automatically extracting emails, secrets, etc.",
-            "bbot -t www.evilcorp.com -p spider -c web_spider_distance=2 web_spider_depth=2",
+            "bbot -t www.evilcorp.com -p spider -c web.spider_distance=2 web.spider_depth=2",
         ),
         (
             "Everything everywhere all at once",
@@ -351,9 +351,7 @@ class BBOTArgs:
     def validate(self):
         # validate config options
         sentinel = object()
-        all_options = set(self.preset.core.default_config.keys()) - {"modules"}
-        for module_options in self.preset.module_loader.modules_options().values():
-            all_options.update(set(o[0] for o in module_options))
+        all_options = set(get_keys_in_dot_syntax(self.preset.core.default_config))
         for c in self.parsed.config:
             c = c.split("=")[0].strip()
             v = OmegaConf.select(self.preset.core.default_config, c, default=sentinel)

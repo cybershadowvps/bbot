@@ -161,11 +161,11 @@ Scope distance continues to increase the further out you get. Most modules (e.g.
 
 #### Displaying Out-of-scope Events
 
-By default, BBOT only displays in-scope events (with a few exceptions such as `STORAGE_BUCKET`s). If you want to see more, you must increase the [config](configuration.md) value of `scope_report_distance`:
+By default, BBOT only displays in-scope events (with a few exceptions such as `STORAGE_BUCKET`s). If you want to see more, you must increase the [config](configuration.md) value of `scope.report_distance`:
 
 ```bash
 # display out-of-scope events up to one hop away from the main scope
-bbot -t evilcorp.com -f subdomain-enum -c scope_report_distance=1
+bbot -t evilcorp.com -f subdomain-enum -c scope.report_distance=1
 ```
 
 ### Strict Scope
@@ -211,16 +211,18 @@ Wildcard hosts are collapsed into a single host beginning with `_wildcard`:
 If you don't want this, you can disable wildcard detection on a domain-to-domain basis in the [config](configuration.md):
 
 ```yaml title="~/.bbot/config/bbot.yml"
-dns_wildcard_ignore:
-  - evilcorp.com
-  - evilcorp.co.uk
+dns:
+  wildcard_ignore:
+    - evilcorp.com
+    - evilcorp.co.uk
 ```
 
 There are certain edge cases (such as with dynamic DNS rules) where BBOT's wildcard detection fails. In these cases, you can try increasing the number of wildcard checks in the config:
 
 ```yaml title="~/.bbot/config/bbot.yml"
 # default == 10
-dns_wildcard_tests: 20
+dns:
+  wildcard_tests: 20
 ```
 
 If that doesn't work you can consider [blacklisting](#whitelists-and-blacklists) the offending domain.

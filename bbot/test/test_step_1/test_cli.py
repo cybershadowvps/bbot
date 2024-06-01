@@ -13,7 +13,7 @@ async def test_cli_scope(monkeypatch, capsys):
     # basic target without whitelist
     monkeypatch.setattr(
         "sys.argv",
-        ["bbot", "-t", "one.one.one.one", "-c", "scope_report_distance=10", "dns_resolution=true", "--json"],
+        ["bbot", "-t", "one.one.one.one", "-c", "scope.report_distance=10", "dns.minimal=false", "--json"],
     )
     result = await cli._main()
     out, err = capsys.readouterr()
@@ -49,9 +49,9 @@ async def test_cli_scope(monkeypatch, capsys):
             "-w",
             "192.168.0.1",
             "-c",
-            "scope_report_distance=10",
-            "dns_resolution=true",
-            "scope_dns_search_distance=2",
+            "scope.report_distance=10",
+            "dns.minimal=false",
+            "dns.search_distance=2",
             "--json",
         ],
     )
@@ -94,7 +94,7 @@ async def test_cli_scan(monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["bbot", "-y", "-t", "127.0.0.1", "www.example.com", "-n", "test_cli_scan", "-c", "dns_resolution=False"],
+        ["bbot", "-y", "-t", "127.0.0.1", "www.example.com", "-n", "test_cli_scan", "-c", "dns.disable=true"],
     )
     result = await cli._main()
     assert result == True
@@ -108,7 +108,7 @@ async def test_cli_scan(monkeypatch):
 
     with open(scan_home / "preset.yml") as f:
         text = f.read()
-        assert "  dns_resolution: false" in text
+        assert "  dns:\n    disable: true" in text
 
     with open(scan_home / "output.csv") as f:
         lines = f.readlines()
@@ -447,7 +447,7 @@ def test_cli_config_validation(monkeypatch, caplog):
     monkeypatch.setattr("sys.argv", ["bbot", "-c", "web_spier_distance=4"])
     cli.main()
     assert 'Could not find config option "web_spier_distance"' in caplog.text
-    assert 'Did you mean "web_spider_distance"?' in caplog.text
+    assert 'Did you mean "web.spider_distance"?' in caplog.text
 
 
 def test_cli_module_validation(monkeypatch, caplog):
